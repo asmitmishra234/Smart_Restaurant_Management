@@ -1,6 +1,7 @@
 
 import Invoice from "../models/invoice.model.js";
 import Order from "../models/order.model.js";
+import Payment from "../models/payment.model.js";
 import ApiError from "../utils/ApiErrors.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -110,8 +111,15 @@ export const getMyInvoice = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Invoice not found");
     }
 
+    const latestPayment = await Payment.findOne({ invoice: invoice._id })
+        .sort({ createdAt: -1 })
+        .select("paymentMethod status createdAt paidAt");
+
+    const invoiceWithPayment = invoice.toObject();
+    invoiceWithPayment.payment = latestPayment;
+
     res.status(200).json(
-        new ApiResponse(200, invoice, "Invoice fetched successfully")
+        new ApiResponse(200, invoiceWithPayment, "Invoice fetched successfully")
     );
 });
 

@@ -7,6 +7,11 @@ export const requestCashPayment = createApiThunk(
   api.createCashPayment,
   'Unable to request cash payment.',
 )
+export const fetchPendingCashPayments = createApiThunk(
+  'payments/fetchPendingCash',
+  api.fetchPendingCashPayments,
+  'Unable to load pending cash payments.',
+)
 export const confirmCashPayment = createApiThunk(
   'payments/confirmCash',
   api.confirmCashPayment,
@@ -25,7 +30,15 @@ export const verifyOnlinePayment = createApiThunk(
 
 const paymentSlice = createSlice({
   name: 'payments',
-  initialState: { current: null, status: 'idle', error: null },
+  initialState: {
+    current: null,
+    status: 'idle',
+    error: null,
+    pendingCashPayments: [],
+    pendingCashStatus: 'idle',
+    pendingCashError: null,
+    confirmingPaymentId: null,
+  },
   reducers: {
     clearPaymentError(state) {
       state.error = null
@@ -45,8 +58,33 @@ const paymentSlice = createSlice({
         state.status = 'failed'
         state.error = action.payload ?? action.error.message
       })
+      .addCase(fetchPendingCashPayments.pending, (state) => {
+        state.pendingCashStatus = 'loading'
+        state.pendingCashError = null
+      })
+      .addCase(fetchPendingCashPayments.fulfilled, (state, action) => {
+        state.pendingCashStatus = 'succeeded'
+        state.pendingCashPayments = action.payload
+      })
+      .addCase(fetchPendingCashPayments.rejected, (state, action) => {
+        state.pendingCashStatus = 'failed'
+        state.pendingCashError = action.payload ?? action.error.message
+      })
+      .addCase(confirmCashPayment.pending, (state, action) => {
+        state.confirmingPaymentId = action.meta.arg
+        state.pendingCashError = null
+      })
       .addCase(confirmCashPayment.fulfilled, (state, action) => {
         state.current = action.payload.payment
+        state.pendingCashPayments = state.pendingCashPayments.filter(
+          (payment) => payment._id !== action.payload.payment._id,
+        )
+        state.confirmingPaymentId = null
+        state.pendingCashError = null
+      })
+      .addCase(confirmCashPayment.rejected, (state, action) => {
+        state.confirmingPaymentId = null
+        state.pendingCashError = action.payload ?? action.error.message
       })
       .addCase(createOnlinePaymentOrder.fulfilled, (state, action) => {
         state.status = 'succeeded'

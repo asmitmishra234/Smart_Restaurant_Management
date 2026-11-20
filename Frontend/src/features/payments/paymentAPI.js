@@ -13,6 +13,11 @@ export async function createCashPayment(sessionToken) {
   return response.data.data
 }
 
+export async function fetchPendingCashPayments() {
+  const response = await axiosInstance.get('/payments/pending-cash')
+  return response.data.data
+}
+
 export async function confirmCashPayment(id) {
   const response = await axiosInstance.patch(`/payments/${id}/confirm-cash`)
   return response.data.data

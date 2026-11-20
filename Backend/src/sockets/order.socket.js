@@ -103,6 +103,24 @@ const registerOrderSocket = (io) => {
             });
         });
 
+        // ADMIN ROOM
+        socket.on("join-admin-room", () => {
+            if (!socket.user || socket.user.role !== "ADMIN") {
+                socket.emit("socket-error", {
+                    message: "Unauthorized admin access"
+                });
+                return;
+            }
+
+            socket.join("admin-room");
+
+            socket.emit("joined-admin-room", {
+                success: true,
+                role: socket.user.role,
+                message: "Admin notifications connected"
+            });
+        });
+
         // KITCHEN ROOM
         socket.on("join-kitchen-room", () => {
             if (!socket.user || socket.user.role !== "KITCHEN") {

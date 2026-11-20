@@ -23,6 +23,7 @@ const Login = lazy(() => import('../pages/auth/Login.jsx'))
 const Menu = lazy(() => import('../pages/customer/Menu.jsx'))
 const OrderTracking = lazy(() => import('../pages/customer/OrderTracking.jsx'))
 const Orders = lazy(() => import('../pages/admin/Orders.jsx'))
+const Payments = lazy(() => import('../pages/admin/Payments.jsx'))
 const Products = lazy(() => import('../pages/admin/Products.jsx'))
 const Reports = lazy(() => import('../pages/admin/Reports.jsx'))
 const Staff = lazy(() => import('../pages/admin/Staff.jsx'))
@@ -125,6 +126,7 @@ function RouteTree() {
               >
                 <Route index element={<Dashboard />} />
                 <Route path="orders" element={<Orders />} />
+                <Route path="payments" element={<Payments />} />
                 <Route path="products" element={<Products />} />
                 <Route path="categories" element={<Categories />} />
                 <Route path="tables" element={<Tables />} />

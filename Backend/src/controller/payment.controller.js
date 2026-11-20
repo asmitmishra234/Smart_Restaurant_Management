@@ -1,6 +1,8 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import Payment from "../models/payment.model.js";
 import Invoice from "../models/invoice.model.js";
+import Order from "../models/order.model.js";
 import ApiError from "../utils/ApiErrors.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -47,6 +49,10 @@ export const createPayment = asyncHandler(async (req, res) => {
         paymentMethod
     });
 
+    req.app.get("io").to("admin-room").emit("cash-payment-requested", {
+        paymentId: payment._id
+    });
+
     res.status(201).json(
         new ApiResponse(
             201,
@@ -56,48 +62,136 @@ export const createPayment = asyncHandler(async (req, res) => {
     );
 });
 
-// CONFIRM CASH PAYMENT - ADMIN / WAITER
-export const confirmCashPayment = asyncHandler(async (req, res) => {
-    const payment = await Payment.findById(req.params.id);
+// GET PENDING CASH PAYMENTS - ADMIN
+export const getPendingCashPayments = asyncHandler(async (req, res) => {
+    const payments = await Payment.find({
+        paymentMethod: "CASH",
+        status: "PENDING"
+    })
+        .sort({ createdAt: 1 })
+        .populate({
+            path: "invoice",
+            select: "invoiceNumber table totalAmount paymentStatus orders",
+            populate: [
+                { path: "table", select: "tableNumber" },
+                { path: "orders", select: "orderNumber" }
+            ]
+        });
 
-    if (!payment) {
-        throw new ApiError(404, "Payment not found");
-    }
-
-    if (payment.paymentMethod !== "CASH") {
-        throw new ApiError(400, "This is not a cash payment");
-    }
-
-    if (payment.status !== "PENDING") {
-        throw new ApiError(400, "Payment is not pending");
-    }
-
-    const invoice = await Invoice.findById(payment.invoice);
-
-    if (!invoice) {
-        throw new ApiError(404, "Invoice not found");
-    }
-
-    if (invoice.paymentStatus !== "PENDING") {
-        throw new ApiError(400, "Invoice is not pending");
-    }
-
-    payment.status = "SUCCESS";
-    payment.paidAt = new Date();
-
-    invoice.paymentStatus = "PAID";
-    invoice.paymentMethod = "CASH";
-    invoice.paidAt = new Date();
-
-    await Promise.all([
-        payment.save(),
-        invoice.save()
-    ]);
+    const pendingPayments = payments.filter(
+        payment => payment.invoice?.paymentStatus === "PENDING"
+    );
 
     res.status(200).json(
         new ApiResponse(
             200,
-            { payment, invoice },
+            pendingPayments,
+            "Pending cash payments fetched successfully"
+        )
+    );
+});
+
+// CONFIRM CASH PAYMENT - ADMIN
+export const confirmCashPayment = asyncHandler(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+        throw new ApiError(400, "Invalid payment ID");
+    }
+
+    const session = await mongoose.startSession();
+    let result;
+
+    try {
+        await session.withTransaction(async () => {
+            const payment = await Payment.findById(req.params.id).session(session);
+
+            if (!payment) {
+                throw new ApiError(404, "Payment not found");
+            }
+
+            if (payment.paymentMethod !== "CASH") {
+                throw new ApiError(400, "This is not a cash payment");
+            }
+
+            if (payment.status !== "PENDING") {
+                throw new ApiError(409, "Payment is no longer pending");
+            }
+
+            const invoice = await Invoice.findById(payment.invoice).session(session);
+
+            if (!invoice) {
+                throw new ApiError(404, "Invoice not found");
+            }
+
+            if (String(invoice.tableSession) !== String(payment.tableSession)) {
+                throw new ApiError(409, "Payment does not match the invoice session");
+            }
+
+            if (invoice.paymentStatus !== "PENDING") {
+                throw new ApiError(409, "Invoice is no longer pending payment");
+            }
+
+            const paidAt = new Date();
+            const confirmedPayment = await Payment.findOneAndUpdate(
+                {
+                    _id: payment._id,
+                    paymentMethod: "CASH",
+                    status: "PENDING"
+                },
+                {
+                    $set: { status: "COMPLETED", paidAt }
+                },
+                { new: true, session }
+            );
+
+            if (!confirmedPayment) {
+                throw new ApiError(409, "Payment is no longer pending");
+            }
+
+            const paidInvoice = await Invoice.findOneAndUpdate(
+                { _id: invoice._id, paymentStatus: "PENDING" },
+                {
+                    $set: {
+                        paymentStatus: "PAID",
+                        paymentMethod: "CASH",
+                        paidAt
+                    }
+                },
+                { new: true, session }
+            );
+
+            if (!paidInvoice) {
+                throw new ApiError(409, "Invoice is no longer pending payment");
+            }
+
+            await Order.updateMany(
+                { _id: { $in: paidInvoice.orders } },
+                { $set: { paymentStatus: "PAID" } },
+                { session }
+            );
+
+            result = { payment: confirmedPayment, invoice: paidInvoice };
+        });
+    } finally {
+        await session.endSession();
+    }
+
+    const io = req.app.get("io");
+    io.to(`table-session-${result.payment.tableSession}`).emit(
+        "payment-status-updated",
+        {
+            paymentId: result.payment._id,
+            status: result.payment.status,
+            invoicePaymentStatus: result.invoice.paymentStatus
+        }
+    );
+    io.to("admin-room").emit("cash-payment-confirmed", {
+        paymentId: result.payment._id
+    });
+
+    res.status(200).json(
+        new ApiResponse(
+            200,
+            result,
             "Cash payment confirmed successfully"
         )
     );
@@ -245,7 +339,11 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 
     await Promise.all([
         payment.save(),
-        invoice.save()
+        invoice.save(),
+        Order.updateMany(
+            { _id: { $in: invoice.orders } },
+            { $set: { paymentStatus: "PAID" } }
+        )
     ]);
 
     res.status(200).json(

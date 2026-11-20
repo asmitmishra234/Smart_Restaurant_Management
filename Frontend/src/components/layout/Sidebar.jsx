@@ -6,6 +6,7 @@ import {
   ChartNoAxesCombined,
   ChevronLeft,
   ClipboardList,
+  CreditCard,
   LayoutDashboard,
   MessageSquareText,
   Package,
@@ -24,6 +25,7 @@ const navigation = [
     items: [
       { label: 'Orders', to: '/admin/orders', icon: ClipboardList, badge: 'orders' },
       { label: 'Tables', to: '/admin/tables', icon: Armchair },
+      { label: 'Payments', to: '/admin/payments', icon: CreditCard },
     ],
   },
   {

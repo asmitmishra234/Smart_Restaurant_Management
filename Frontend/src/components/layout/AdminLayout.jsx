@@ -5,6 +5,7 @@ import Sidebar from './Sidebar.jsx'
 
 const pages = [
   ['/admin/orders', 'Orders', 'Review and manage incoming restaurant orders.'],
+  ['/admin/payments', 'Payments', 'Review and confirm pending cash payments.'],
   ['/admin/products', 'Products', 'Keep your menu items accurate and available.'],
   ['/admin/categories', 'Categories', 'Organize the items on your restaurant menu.'],
   ['/admin/tables', 'Tables', 'Manage seating and table availability.'],

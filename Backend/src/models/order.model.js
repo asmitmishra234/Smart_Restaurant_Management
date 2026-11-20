@@ -96,6 +96,12 @@ const orderSchema = new mongoose.Schema(
             default: "PLACED"
         },
 
+        paymentStatus: {
+            type: String,
+            enum: ["PENDING", "PAID"],
+            default: "PENDING"
+        },
+
         estimatedPreparationTime: {
             type: Number,
             default: 0

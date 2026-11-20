@@ -18,6 +18,11 @@ import {
 } from '../../features/payments/paymentSlice.js'
 import { submitFeedback } from '../../features/feedback/feedbackSlice.js'
 import { loadRazorpayScript } from '../../services/razorpay.js'
+import {
+  connectSocket,
+  disconnectSocket,
+  joinTableSession,
+} from '../../services/socket.js'
 import { getApiErrorMessage } from '../../utils/apiError.js'
 import { formatCurrency, formatDateTime } from '../../utils/formatters.js'
 
@@ -52,10 +57,14 @@ export default function Bill() {
         sessionStorage.getItem(feedbackKey(session.sessionToken)) === 'true'),
   )
   const pendingCashPayment =
-    payment.current?.status === 'PENDING' &&
-    payment.current?.paymentMethod === 'CASH'
+    (payment.current?.status === 'PENDING' &&
+      payment.current?.paymentMethod === 'CASH') ||
+    (invoice?.payment?.status === 'PENDING' &&
+      invoice?.payment?.paymentMethod === 'CASH')
   const pendingOnlinePayment = Boolean(
-    payment.current?.paymentId && payment.current?.razorpayOrderId,
+    (payment.current?.paymentId && payment.current?.razorpayOrderId) ||
+      (invoice?.payment?.status === 'PENDING' &&
+        invoice?.payment?.paymentMethod === 'ONLINE'),
   )
 
   const loadInvoice = useCallback(async (sessionToken, showError = false) => {
@@ -86,9 +95,39 @@ export default function Bill() {
     const refreshId = window.setInterval(() => {
       loadInvoice(session.sessionToken)
     }, 15000)
+
+    const socket = connectSocket()
+    const handleConnect = () => joinTableSession(session.sessionToken)
+    const handlePaymentUpdate = async (payload) => {
+      if (payload?.invoicePaymentStatus !== 'PAID') return
+
+      try {
+        await dispatch(fetchCustomerInvoice(session.sessionToken)).unwrap()
+        toast.success('Admin confirmed your cash payment.')
+      } catch (requestError) {
+        toast.error(
+          getApiErrorMessage(
+            requestError,
+            'Payment was confirmed, but your bill could not be refreshed.',
+          ),
+        )
+      }
+    }
+    const handleConnectError = () =>
+      toast.error('Live payment updates could not connect. Your bill will refresh periodically.')
+
+    socket.on('connect', handleConnect)
+    socket.on('payment-status-updated', handlePaymentUpdate)
+    socket.on('connect_error', handleConnectError)
+    if (socket.connected) handleConnect()
+
     return () => {
       active = false
       window.clearInterval(refreshId)
+      socket.off('connect', handleConnect)
+      socket.off('payment-status-updated', handlePaymentUpdate)
+      socket.off('connect_error', handleConnectError)
+      disconnectSocket()
     }
   }, [dispatch, loadInvoice, session?.sessionToken])
 
@@ -114,7 +153,7 @@ export default function Bill() {
   const handleCashPayment = async () => {
     try {
       await dispatch(requestCashPayment(session.sessionToken)).unwrap()
-      toast.success('Cash payment requested. Please ask a team member to confirm it.')
+      toast.success('Cash payment requested. Please wait for Admin confirmation.')
     } catch (requestError) {
       toast.error(getApiErrorMessage(requestError, 'Unable to request cash payment.'))
     }
@@ -321,7 +360,7 @@ export default function Bill() {
           {(pendingCashPayment || pendingOnlinePayment) && (
             <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
               {pendingCashPayment
-                ? 'Cash payment requested. Please ask a team member to confirm it.'
+                ? 'Cash payment requested. Please wait for Admin confirmation.'
                 : 'An online payment attempt is pending. If you closed checkout, ask a team member for assistance before retrying.'}
             </p>
           )}

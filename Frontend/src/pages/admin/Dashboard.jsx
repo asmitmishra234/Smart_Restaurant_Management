@@ -22,6 +22,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useAppDispatch, useAppSelector } from '../../app/hooks.js'
+import toast from 'react-hot-toast'
 import EmptyState from '../../components/common/EmptyState.jsx'
 import Button from '../../components/common/Button.jsx'
 import { LoadingSkeleton } from '../../components/common/Loader.jsx'
@@ -29,6 +30,11 @@ import {
   fetchDashboardOverview,
   selectDashboard,
 } from '../../features/dashboard/dashboardSlice.js'
+import {
+  connectSocket,
+  disconnectSocket,
+  joinAdminRoom,
+} from '../../services/socket.js'
 import { formatCurrency, formatDateTime } from '../../utils/formatters.js'
 
 function StatCard({ title, value, icon: Icon, detail, accent = false }) {
@@ -95,6 +101,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     dispatch(fetchDashboardOverview())
+    const socket = connectSocket()
+    const handleConnect = () => joinAdminRoom()
+    const handlePaymentConfirmed = () => dispatch(fetchDashboardOverview())
+    const handleSocketError = (payload) =>
+      toast.error(payload?.message ?? 'Live dashboard updates are unavailable.')
+    const handleConnectError = () =>
+      toast.error('Live payment updates could not connect. Refresh for current totals.')
+
+    socket.on('connect', handleConnect)
+    socket.on('cash-payment-confirmed', handlePaymentConfirmed)
+    socket.on('socket-error', handleSocketError)
+    socket.on('connect_error', handleConnectError)
+    if (socket.connected) handleConnect()
+
+    return () => {
+      socket.off('connect', handleConnect)
+      socket.off('cash-payment-confirmed', handlePaymentConfirmed)
+      socket.off('socket-error', handleSocketError)
+      socket.off('connect_error', handleConnectError)
+      disconnectSocket()
+    }
   }, [dispatch])
 
   if (status === 'loading' && !overview) return <DashboardLoading />

@@ -25,6 +25,10 @@ export function joinStaffRoom() {
   getSocket().emit('join-staff-room')
 }
 
+export function joinAdminRoom() {
+  getSocket().emit('join-admin-room')
+}
+
 export function joinKitchenRoom() {
   getSocket().emit('join-kitchen-room')
 }
