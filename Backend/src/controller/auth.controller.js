@@ -5,11 +5,14 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import generateToken from "../utils/generateToken.js";
 
-const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000
+const getCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === "production";
+
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "strict"
+    };
 };
 
 // STAFF LOGIN
@@ -41,7 +44,10 @@ export const login = asyncHandler(async (req, res) => {
         role: user.role
     };
 
-    res.cookie("token", token, cookieOptions);
+    res.cookie("token", token, {
+        ...getCookieOptions(),
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
     res.status(200).json(
         new ApiResponse(200, userData, "Login successful")
@@ -50,11 +56,7 @@ export const login = asyncHandler(async (req, res) => {
 
 // STAFF LOGOUT
 export const logout = asyncHandler(async (req, res) => {
-    res.clearCookie("token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
-    });
+    res.clearCookie("token", getCookieOptions());
 
     res.status(200).json(
         new ApiResponse(200, null, "Logout successful")

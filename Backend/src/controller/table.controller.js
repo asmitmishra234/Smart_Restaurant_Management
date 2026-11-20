@@ -6,6 +6,7 @@ import Table from "../models/table.model.js";
 import ApiError from "../utils/ApiErrors.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { getFrontendOrigin } from "../config/cors.js";
 
 // CREATE TABLE
 export const createTable = asyncHandler(async (req, res) => {
@@ -32,7 +33,7 @@ export const createTable = asyncHandler(async (req, res) => {
         qrToken
     });
 
-    const menuUrl = `${process.env.FRONTEND_URL}/menu?table=${qrToken}`;
+    const menuUrl = `${getFrontendOrigin()}/menu?table=${encodeURIComponent(qrToken)}`;
 
     const qrCode = await QRCode.toDataURL(menuUrl);
 

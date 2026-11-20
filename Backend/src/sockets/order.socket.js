@@ -30,7 +30,7 @@ const registerOrderSocket = (io) => {
             if (
                 user &&
                 user.isActive &&
-                ["ADMIN", "WAITER"].includes(user.role)
+                ["ADMIN", "KITCHEN", "WAITER"].includes(user.role)
             ) {
                 socket.user = user;
             }
@@ -100,6 +100,24 @@ const registerOrderSocket = (io) => {
                 success: true,
                 role: socket.user.role,
                 message: "Staff notifications connected"
+            });
+        });
+
+        // KITCHEN ROOM
+        socket.on("join-kitchen-room", () => {
+            if (!socket.user || socket.user.role !== "KITCHEN") {
+                socket.emit("socket-error", {
+                    message: "Unauthorized kitchen access"
+                });
+                return;
+            }
+
+            socket.join("kitchen-room");
+
+            socket.emit("joined-kitchen-room", {
+                success: true,
+                role: socket.user.role,
+                message: "Kitchen order updates connected"
             });
         });
 

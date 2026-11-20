@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import corsOptions from "./config/cors.js";
 
 import authRoutes from "./routes/auth.routs.js";
 import categoryRoutes from "./routes/category.routes.js";
@@ -24,10 +25,7 @@ import notFound from "./middleware/notFound.middleware.js";
 const app = express();
 
 // CORS
-app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true
-}));
+app.use(cors(corsOptions));
 
 // Global Middleware
 app.use(express.json());

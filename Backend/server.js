@@ -7,16 +7,13 @@ import { Server } from "socket.io";
 
 import app from "./src/app.js";
 import connectDB from "./src/config/database.js";
+import corsOptions from "./src/config/cors.js";
 import registerOrderSocket from "./src/sockets/order.socket.js";
 
 const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
-    cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:5173",
-        methods: ["GET", "POST"],
-        credentials: true
-    }
+    cors: corsOptions
 });
 
 io.on("connection", (socket) => {

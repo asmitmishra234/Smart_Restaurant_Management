@@ -133,6 +133,11 @@ export const createOrder = asyncHandler(async (req, res) => {
         estimatedPreparationTime
     });
 
+    req.app.get("io").to("staff-room").emit("order-updated", {
+        orderId: order._id,
+        status: order.status
+    });
+
     res.status(201).json(
         new ApiResponse(201, order, "Order placed successfully")
     );
@@ -230,6 +235,13 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
             estimatedPreparationTime: order.estimatedPreparationTime
         }
     );
+
+    const staffUpdate = {
+        orderId: order._id,
+        status: order.status
+    };
+    io.to("staff-room").emit("order-updated", staffUpdate);
+    io.to("kitchen-room").emit("order-updated", staffUpdate);
 
     res.status(200).json(
         new ApiResponse(
