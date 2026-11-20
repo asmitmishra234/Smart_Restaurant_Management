@@ -58,7 +58,7 @@ export const getProducts = asyncHandler(async (req, res) => {
         isAvailable: true,
         isDeleted: false
     })
-    .populate("category", "name")
+    .populate("category", "name isActive")
     .sort({ createdAt: -1 });
 
     const activeProducts = products.filter(
