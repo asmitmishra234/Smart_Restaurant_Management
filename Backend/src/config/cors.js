@@ -1,22 +1,35 @@
-const LOCAL_FRONTEND_ORIGIN =
-    process.env.LOCAL_FRONTEND_URL || "http://localhost:5173";
+const PRODUCTION_FRONTEND_ORIGIN =
+    "https://smart-restaurant-management-1.onrender.com";
+const LOCAL_FRONTEND_ORIGIN = "http://localhost:5173";
 
-const normalizeOrigin = (origin) => origin.replace(/\/+$/, "");
+const normalizeOrigin = (origin) => {
+    if (typeof origin !== "string" || !origin.trim()) {
+        return null;
+    }
 
-const isAllowedOrigin = (origin) => {
-    const allowedOrigins = [
-        process.env.FRONTEND_URL,
-        process.env.LOCAL_FRONTEND_URL || LOCAL_FRONTEND_ORIGIN
-    ]
-        .filter(Boolean)
-        .map(normalizeOrigin);
-
-    return allowedOrigins.includes(normalizeOrigin(origin));
+    try {
+        return new URL(origin.trim()).origin;
+    } catch {
+        return null;
+    }
 };
+
+const getAllowedOrigins = () =>
+    new Set(
+        [
+            PRODUCTION_FRONTEND_ORIGIN,
+            process.env.FRONTEND_URL,
+            process.env.LOCAL_FRONTEND_URL || LOCAL_FRONTEND_ORIGIN
+        ]
+            .map(normalizeOrigin)
+            .filter(Boolean)
+    );
 
 const corsOptions = {
     origin(origin, callback) {
-        if (!origin || isAllowedOrigin(origin)) {
+        const requestOrigin = normalizeOrigin(origin);
+
+        if (!origin || (requestOrigin && getAllowedOrigins().has(requestOrigin))) {
             return callback(null, true);
         }
 
@@ -24,7 +37,8 @@ const corsOptions = {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-session-token"]
+    allowedHeaders: ["Content-Type", "Authorization", "x-session-token"],
+    optionsSuccessStatus: 204
 };
 
 export function getFrontendOrigin() {
@@ -36,7 +50,12 @@ export function getFrontendOrigin() {
         throw new Error("FRONTEND_URL must be set in production");
     }
 
-    return normalizeOrigin(frontendOrigin);
+    const normalizedOrigin = normalizeOrigin(frontendOrigin);
+    if (!normalizedOrigin) {
+        throw new Error("FRONTEND_URL must be a valid origin");
+    }
+
+    return normalizedOrigin;
 }
 
 export default corsOptions;

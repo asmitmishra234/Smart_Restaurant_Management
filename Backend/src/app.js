@@ -24,7 +24,8 @@ import notFound from "./middleware/notFound.middleware.js";
 
 const app = express();
 
-// CORS
+// Handle preflight before parsing requests or routing.
+app.options(/.*/, cors(corsOptions));
 app.use(cors(corsOptions));
 
 // Global Middleware
