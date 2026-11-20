@@ -51,13 +51,18 @@ export default function WaiterDashboard() {
     }
     const handleRequestUpdate = (payload) =>
       dispatch(updateRequestFromSocket(payload))
+    const handleOrderUpdate = () => dispatch(fetchOrders())
     const handleSocketError = (payload) =>
       toast.error(payload?.message ?? 'Staff live updates are unavailable.')
+    const handleConnectError = () =>
+      toast.error('Live staff updates could not connect. Periodic refresh remains active.')
 
     socket.on('connect', handleConnect)
     socket.on('new-waiter-request', handleNewRequest)
     socket.on('waiter-request-updated', handleRequestUpdate)
+    socket.on('order-updated', handleOrderUpdate)
     socket.on('socket-error', handleSocketError)
+    socket.on('connect_error', handleConnectError)
     if (socket.connected) handleConnect()
 
     return () => {
@@ -66,7 +71,9 @@ export default function WaiterDashboard() {
       socket.off('connect', handleConnect)
       socket.off('new-waiter-request', handleNewRequest)
       socket.off('waiter-request-updated', handleRequestUpdate)
+      socket.off('order-updated', handleOrderUpdate)
       socket.off('socket-error', handleSocketError)
+      socket.off('connect_error', handleConnectError)
       disconnectSocket()
     }
   }, [dispatch])

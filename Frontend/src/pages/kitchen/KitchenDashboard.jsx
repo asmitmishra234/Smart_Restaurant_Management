@@ -6,6 +6,11 @@ import Button from '../../components/common/Button.jsx'
 import EmptyState from '../../components/common/EmptyState.jsx'
 import { LoadingSkeleton } from '../../components/common/Loader.jsx'
 import { fetchOrders, setOrderStatus } from '../../features/orders/orderSlice.js'
+import {
+  connectSocket,
+  disconnectSocket,
+  joinKitchenRoom,
+} from '../../services/socket.js'
 import { formatDateTime } from '../../utils/formatters.js'
 import { getApiErrorMessage } from '../../utils/apiError.js'
 
@@ -22,7 +27,28 @@ export default function KitchenDashboard() {
       dispatch(fetchOrders())
     }, 15000)
 
-    return () => window.clearInterval(refreshId)
+    const socket = connectSocket()
+    const handleConnect = () => joinKitchenRoom()
+    const handleOrderUpdate = () => dispatch(fetchOrders())
+    const handleSocketError = (payload) =>
+      toast.error(payload?.message ?? 'Kitchen live updates are unavailable.')
+    const handleConnectError = () =>
+      toast.error('Live kitchen updates could not connect. Periodic refresh remains active.')
+
+    socket.on('connect', handleConnect)
+    socket.on('order-updated', handleOrderUpdate)
+    socket.on('socket-error', handleSocketError)
+    socket.on('connect_error', handleConnectError)
+    if (socket.connected) handleConnect()
+
+    return () => {
+      window.clearInterval(refreshId)
+      socket.off('connect', handleConnect)
+      socket.off('order-updated', handleOrderUpdate)
+      socket.off('socket-error', handleSocketError)
+      socket.off('connect_error', handleConnectError)
+      disconnectSocket()
+    }
   }, [dispatch])
 
   const kitchenOrders = useMemo(
@@ -66,8 +92,7 @@ export default function KitchenDashboard() {
       </section>
 
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-        Kitchen orders refresh every 15 seconds. The current backend does not
-        broadcast kitchen order events over Socket.IO.
+        Order changes arrive over Socket.IO, with a 15-second refresh as a fallback.
       </p>
 
       {status === 'loading' && !items.length ? (

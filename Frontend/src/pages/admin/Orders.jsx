@@ -6,6 +6,11 @@ import Button from '../../components/common/Button.jsx'
 import EmptyState from '../../components/common/EmptyState.jsx'
 import { LoadingSkeleton } from '../../components/common/Loader.jsx'
 import { fetchOrders, setOrderStatus } from '../../features/orders/orderSlice.js'
+import {
+  connectSocket,
+  disconnectSocket,
+  joinStaffRoom,
+} from '../../services/socket.js'
 import { formatCurrency, formatDateTime } from '../../utils/formatters.js'
 import { getApiErrorMessage } from '../../utils/apiError.js'
 
@@ -61,6 +66,27 @@ export default function Orders() {
 
   useEffect(() => {
     dispatch(fetchOrders())
+    const socket = connectSocket()
+    const handleConnect = () => joinStaffRoom()
+    const handleOrderUpdate = () => dispatch(fetchOrders())
+    const handleSocketError = (payload) =>
+      toast.error(payload?.message ?? 'Staff live updates are unavailable.')
+    const handleConnectError = () =>
+      toast.error('Live order updates could not connect.')
+
+    socket.on('connect', handleConnect)
+    socket.on('order-updated', handleOrderUpdate)
+    socket.on('socket-error', handleSocketError)
+    socket.on('connect_error', handleConnectError)
+    if (socket.connected) handleConnect()
+
+    return () => {
+      socket.off('connect', handleConnect)
+      socket.off('order-updated', handleOrderUpdate)
+      socket.off('socket-error', handleSocketError)
+      socket.off('connect_error', handleConnectError)
+      disconnectSocket()
+    }
   }, [dispatch])
 
   const filteredOrders = useMemo(

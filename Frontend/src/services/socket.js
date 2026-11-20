@@ -1,7 +1,6 @@
 import { io } from 'socket.io-client'
+import { apiBaseUrl } from './axiosInstance.js'
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 const socketUrl = new URL(apiBaseUrl).origin
 
 let socket
@@ -24,6 +23,10 @@ export function connectSocket() {
 
 export function joinStaffRoom() {
   getSocket().emit('join-staff-room')
+}
+
+export function joinKitchenRoom() {
+  getSocket().emit('join-kitchen-room')
 }
 
 export function joinTableSession(sessionToken) {

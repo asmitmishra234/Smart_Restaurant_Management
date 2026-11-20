@@ -80,10 +80,13 @@ export default function OrderTracking() {
       dispatch(updateOrderFromSocket(payload))
     const handleSocketError = (payload) =>
       toast.error(payload?.message ?? 'Live order tracking is unavailable.')
+    const handleConnectError = () =>
+      toast.error('Live order tracking could not connect. Periodic refresh remains active.')
 
     socket.on('connect', handleConnect)
     socket.on('order-status-updated', handleStatusUpdate)
     socket.on('socket-error', handleSocketError)
+    socket.on('connect_error', handleConnectError)
     if (socket.connected) handleConnect()
 
     return () => {
@@ -91,6 +94,7 @@ export default function OrderTracking() {
       socket.off('connect', handleConnect)
       socket.off('order-status-updated', handleStatusUpdate)
       socket.off('socket-error', handleSocketError)
+      socket.off('connect_error', handleConnectError)
       disconnectSocket()
     }
   }, [dispatch, session?.sessionToken])

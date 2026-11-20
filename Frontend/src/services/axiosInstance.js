@@ -1,7 +1,10 @@
 import axios from 'axios'
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+
+if (!apiBaseUrl) {
+  throw new Error('VITE_API_BASE_URL must be configured for this build.')
+}
 
 const axiosInstance = axios.create({
   baseURL: apiBaseUrl,
